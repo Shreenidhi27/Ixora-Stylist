@@ -1,0 +1,7 @@
+{
+  "name": "Ixora Stylist",
+  "description": "Your AI-powered personal fashion designer and stylist, helping you feel seen and styled for every occasion.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
