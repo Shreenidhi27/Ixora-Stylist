@@ -90,12 +90,41 @@ const BODY_ANALYSIS_SCHEMA: Schema = {
 const BEAUTY_ANALYSIS_SCHEMA: Schema = {
   type: Type.OBJECT,
   properties: {
+    faceShape: { type: Type.STRING, description: "Oval, Round, Square, Heart, Diamond, Long" },
     skinTone: { type: Type.STRING },
     undertone: { type: Type.STRING },
-    recommendedLipColors: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Array of 4 hex color codes" },
-    recommendedHairStyles: { type: Type.ARRAY, items: { type: Type.STRING } }
+    bestColors: {
+      type: Type.OBJECT,
+      properties: {
+        lipstick: { type: Type.ARRAY, items: { type: Type.STRING } },
+        foundation: { type: Type.STRING },
+        contour: { type: Type.STRING },
+        concealer: { type: Type.STRING }
+      },
+      required: ["lipstick", "foundation", "contour", "concealer"]
+    },
+    hairRecommendations: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          style: { type: Type.STRING },
+          description: { type: Type.STRING }
+        },
+        required: ["style", "description"]
+      }
+    },
+    placementAdvice: {
+      type: Type.OBJECT,
+      properties: {
+        contour: { type: Type.STRING },
+        blush: { type: Type.STRING },
+        highlighter: { type: Type.STRING }
+      },
+      required: ["contour", "blush", "highlighter"]
+    }
   },
-  required: ["skinTone", "undertone", "recommendedLipColors", "recommendedHairStyles"]
+  required: ["faceShape", "skinTone", "undertone", "bestColors", "hairRecommendations", "placementAdvice"]
 };
 
 const COLOR_PALETTE_SCHEMA: Schema = {
@@ -320,7 +349,7 @@ export const analyzeBeautyProfile = async (imageBase64: string): Promise<BeautyA
             }
           },
           {
-            text: "Analyze this face for personal color analysis. Determine skin tone and undertone. Suggest 4 specific lipstick hex color codes that would suit them best. Suggest 2 hairstyle keywords."
+            text: "Analyze this face for comprehensive beauty styling. Determine Face Shape (Oval, Round, etc), Skin Tone, Undertone. Suggest specific colors for Lipstick, Foundation, Contour, and Concealer (in Hex). Recommend Hairstyle keywords. Provide placement advice for contour/blush."
           }
         ]
       },

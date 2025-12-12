@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile, ColorPaletteAnalysis } from '../types';
 import { analyzeColorPalette } from '../services/geminiService';
-import { Camera, Sparkles, RefreshCw, Palette, Check, XCircle } from 'lucide-react';
+import { Camera, Sparkles, RefreshCw, Palette, Check, XCircle, AlertCircle } from 'lucide-react';
 
 interface Props {
   userProfile: UserProfile;
@@ -13,6 +13,7 @@ const ColorPaletteView: React.FC<Props> = ({ userProfile, onUpdateProfile }) => 
   const [analyzing, setAnalyzing] = useState(false);
   const [mode, setMode] = useState<'camera' | 'result'>('camera');
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,13 +27,17 @@ const ColorPaletteView: React.FC<Props> = ({ userProfile, onUpdateProfile }) => 
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user' } 
+      });
       setVideoStream(stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
       console.error("Error accessing camera", err);
+      setError("Unable to access camera. Please enable permissions.");
     }
   };
 
@@ -105,7 +110,22 @@ const ColorPaletteView: React.FC<Props> = ({ userProfile, onUpdateProfile }) => 
       <div className="flex-1 overflow-y-auto">
         {mode === 'camera' && (
             <div className="h-full flex flex-col items-center justify-center relative bg-black">
-                {analyzing ? (
+                {error ? (
+                    <div className="flex flex-col items-center justify-center p-6 text-center z-20">
+                        <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center mb-4">
+                            <AlertCircle className="w-8 h-8 text-rose-500" />
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Camera Error</h3>
+                        <p className="text-stone-400 mb-6">{error}</p>
+                        <button 
+                            onClick={startCamera}
+                            className="bg-rose-500 hover:bg-rose-600 text-white px-6 py-3 rounded-full font-medium transition-colors flex items-center gap-2"
+                        >
+                            <Camera className="w-5 h-5" />
+                            Retry Camera
+                        </button>
+                    </div>
+                ) : analyzing ? (
                      <div className="flex flex-col items-center justify-center">
                         <Sparkles className="w-16 h-16 text-rose-500 animate-spin mb-4" />
                         <p className="text-xl font-serif animate-pulse">Analyzing skin undertones...</p>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, BodyShape, SkinTone, Gender, ViewState, WeatherData } from './types';
-import { Home, MessageSquare, UserCircle, ShoppingBag, Dumbbell, Sparkles, Palette } from 'lucide-react';
+import { Home, MessageSquare, UserCircle, ShoppingBag, Dumbbell, Sparkles } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
 import ChatInterface from './components/ChatInterface';
@@ -8,18 +8,18 @@ import ProfileForm from './components/ProfileForm';
 import CommerceView from './components/CommerceView';
 import WorkoutView from './components/WorkoutView';
 import ColorAnalysisView from './components/ColorAnalysisView';
-import ColorPaletteView from './components/ColorPaletteView';
+import LoginScreen from './components/LoginScreen';
 
-// Default initial state
+// Default initial state for fallback or reset
 const DEFAULT_PROFILE: UserProfile = {
-  name: "Alex",
-  age: 28,
+  name: "Guest",
+  age: 25,
   gender: Gender.Female,
   bodyShape: BodyShape.Hourglass,
   skinTone: SkinTone.MediumNeutral,
   heightCm: 165,
   location: "New York",
-  stylePreferences: ["Minimalist", "Chic"],
+  stylePreferences: ["Minimalist"],
   budget: 'Medium',
   favoriteShades: []
 };
@@ -31,8 +31,15 @@ const MOCK_WEATHER: WeatherData = {
 };
 
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [view, setView] = useState<ViewState>('dashboard');
   const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
+
+  const handleLogin = (profile: UserProfile) => {
+    setUserProfile(profile);
+    setIsAuthenticated(true);
+    setView('dashboard');
+  };
 
   const renderView = () => {
     switch (view) {
@@ -48,8 +55,6 @@ const App: React.FC = () => {
         return <WorkoutView userProfile={userProfile} />;
       case 'beauty':
         return <ColorAnalysisView userProfile={userProfile} onUpdateProfile={setUserProfile} />;
-      case 'palette':
-        return <ColorPaletteView userProfile={userProfile} onUpdateProfile={setUserProfile} />;
       default:
         return <Dashboard userProfile={userProfile} weather={MOCK_WEATHER} />;
     }
@@ -67,8 +72,12 @@ const App: React.FC = () => {
     </button>
   );
 
+  if (!isAuthenticated) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
   return (
-    <div className="flex h-screen bg-stone-50 overflow-hidden">
+    <div className="flex h-screen bg-stone-50 overflow-hidden animate-fade-in">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-stone-200 h-full">
         <div className="p-6 border-b border-stone-100">
@@ -84,20 +93,12 @@ const App: React.FC = () => {
             <Home className="w-5 h-5" /> Dashboard
           </button>
           <button
-            onClick={() => setView('palette')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
-              view === 'palette' ? 'bg-rose-50 text-rose-600 font-medium' : 'text-stone-600 hover:bg-stone-50'
-            }`}
-          >
-            <Palette className="w-5 h-5" /> Color Palette
-          </button>
-          <button
             onClick={() => setView('beauty')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
               view === 'beauty' ? 'bg-rose-50 text-rose-600 font-medium' : 'text-stone-600 hover:bg-stone-50'
             }`}
           >
-            <Sparkles className="w-5 h-5" /> Beauty & Try-On
+            <Sparkles className="w-5 h-5" /> Beauty Lab
           </button>
           <button
             onClick={() => setView('workout')}
@@ -139,7 +140,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="text-sm">
                     <p className="font-medium text-stone-900">{userProfile.name}</p>
-                    <p className="text-stone-400 text-xs">{userProfile.bodyShape}</p>
+                    <button onClick={() => setIsAuthenticated(false)} className="text-rose-500 text-xs hover:underline">Sign Out</button>
                 </div>
             </div>
         </div>
@@ -156,9 +157,8 @@ const App: React.FC = () => {
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-2 pb-safe z-50">
         <div className="flex justify-around items-center px-1">
           <NavItem target="dashboard" icon={Home} label="Home" />
-          <NavItem target="palette" icon={Palette} label="Palette" />
-          <NavItem target="beauty" icon={Sparkles} label="Try-On" />
-          {/* <NavItem target="workout" icon={Dumbbell} label="Fit" />  Removed one to fit width comfortably */}
+          <NavItem target="beauty" icon={Sparkles} label="Beauty Lab" />
+          {/* <NavItem target="workout" icon={Dumbbell} label="Fit" /> */}
           <NavItem target="chat" icon={MessageSquare} label="Chat" />
           <NavItem target="commerce" icon={ShoppingBag} label="Shop" />
         </div>

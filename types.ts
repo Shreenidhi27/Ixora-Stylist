@@ -88,10 +88,24 @@ export interface WorkoutPlan {
 }
 
 export interface BeautyAnalysis {
+  faceShape: string; // e.g. Oval, Round
   skinTone: string;
   undertone: string;
-  recommendedLipColors: string[]; // hex codes
-  recommendedHairStyles: string[];
+  bestColors: {
+    lipstick: string[];
+    foundation: string; // hex approximation
+    contour: string; // hex approximation
+    concealer: string; // hex approximation
+  };
+  hairRecommendations: {
+    style: string;
+    description: string;
+  }[];
+  placementAdvice: {
+    contour: string;
+    blush: string;
+    highlighter: string;
+  };
 }
 
 export interface PaletteColor {
