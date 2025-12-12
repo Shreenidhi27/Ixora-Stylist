@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { UserProfile, ChatMessage, Outfit, WeatherData, WorkoutPlan, BodyShape, BeautyAnalysis } from "../types";
+import { UserProfile, ChatMessage, Outfit, WeatherData, WorkoutPlan, BodyShape, BeautyAnalysis, ColorPaletteAnalysis } from "../types";
 
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -7,10 +7,18 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const SYSTEM_INSTRUCTION_BASE = `
 You are Ixora, a world-class personal fashion designer and stylist. 
 Your goal is to help the user feel seen and styled.
-You understand body types, skin tones (color analysis), and face shapes deepy.
-You are empathetic, direct, and confident. Avoid fluff.
-When suggesting outfits, explain "Why it works for you" based on their specific profile.
-Respect budget and constraints.
+
+BEHAVIORAL RULES:
+1. **Consult First**: Do NOT immediately generate a list of products if the user's request is vague. 
+   - Ask clarifying questions about **fabric** (e.g., Cotton, Silk, Linen), **material preference**, **occasion**, or **fit** first.
+   - Only once the user has clarified their material/fabric choice or if the request is very specific, generate the product recommendations.
+2. **Context**: You understand body types, skin tones, and face shapes deeply. Explain "Why it works for you".
+3. **Locale**: The user is likely in India. Use Indian Rupees (₹) for currency. Suggest products from **Amazon India** or **Myntra**.
+4. **Output Format**: 
+   - If you are just chatting or asking questions, output plain text.
+   - If you are recommending specific products, output a short introductory text followed by the JSON block. Do not output the JSON code block markers like \`\`\`json.
+   - For images, strictly use this format: "https://loremflickr.com/400/500/fashion,model,dress?random=1" (changing keywords slightly based on item type).
+
 Do NOT give medical advice.
 `;
 
@@ -28,14 +36,17 @@ const OUTFIT_SCHEMA: Schema = {
         properties: {
           id: { type: Type.STRING },
           name: { type: Type.STRING, description: "Name of the garment" },
-          price: { type: Type.NUMBER },
-          currency: { type: Type.STRING },
+          price: { type: Type.NUMBER, description: "Price in Indian Rupees" },
+          currency: { type: Type.STRING, description: "Should be '₹'" },
           brand: { type: Type.STRING },
-          imageUrl: { type: Type.STRING, description: "A placeholder URL" },
+          imageUrl: { type: Type.STRING, description: "Use https://loremflickr.com/400/500/fashion,clothing?random=XX" },
           url: { type: Type.STRING, description: "A placeholder purchase URL" },
           tracking: { type: Type.BOOLEAN },
+          rating: { type: Type.NUMBER, description: "Rating out of 5, e.g., 4.5" },
+          reviewCount: { type: Type.NUMBER },
+          source: { type: Type.STRING, enum: ['Amazon', 'Myntra', 'Ajio'] }
         },
-        required: ["name", "brand", "price"],
+        required: ["name", "brand", "price", "source", "rating", "imageUrl"],
       }
     }
   },
@@ -87,6 +98,48 @@ const BEAUTY_ANALYSIS_SCHEMA: Schema = {
   required: ["skinTone", "undertone", "recommendedLipColors", "recommendedHairStyles"]
 };
 
+const COLOR_PALETTE_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    season: { type: Type.STRING, description: "e.g. Deep Autumn, Light Spring" },
+    description: { type: Type.STRING, description: "Description of the color season and why it fits." },
+    bestColors: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          hex: { type: Type.STRING }
+        },
+        required: ["name", "hex"]
+      }
+    },
+    neutrals: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          hex: { type: Type.STRING }
+        },
+        required: ["name", "hex"]
+      }
+    },
+    avoidColors: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          hex: { type: Type.STRING }
+        },
+        required: ["name", "hex"]
+      }
+    }
+  },
+  required: ["season", "description", "bestColors", "neutrals", "avoidColors"]
+};
+
 export const generateDailyOutfit = async (user: UserProfile, weather: WeatherData): Promise<Outfit | null> => {
   try {
     const prompt = `
@@ -96,7 +149,7 @@ export const generateDailyOutfit = async (user: UserProfile, weather: WeatherDat
       Context: Weather is ${weather.condition}, ${weather.temp}°C in ${weather.location}.
       
       Provide a complete look including accessories.
-      For image URLs, use "https://picsum.photos/300/400?random=1" (increment random number).
+      IMPORTANT: For image URLs, use "https://loremflickr.com/400/500/fashion,model?random=1" (increment random number for each item).
     `;
 
     const response = await ai.models.generateContent({
@@ -136,11 +189,13 @@ export const chatWithIxora = async (
         systemInstruction: `${SYSTEM_INSTRUCTION_BASE}
         User Profile: ${JSON.stringify(user)}
         
-        If the user specifically asks for an outfit recommendation, specific clothing items, or a "look", 
-        you MUST include a JSON block at the END of your response strictly following this schema:
-        ${JSON.stringify(OUTFIT_SCHEMA)}
-        
-        Otherwise, just reply with helpful text advice.
+        INSTRUCTIONS FOR RESPONSE:
+        1. If the user's request is vague (e.g., "I need a dress"), ask about FABRIC (Cotton, Silk, etc.) and OCCASION first. Do not provide a JSON outfit yet.
+        2. If the user has specified material/fabric/occasion, OR if you are confident in the recommendation:
+           - Provide a brief helpful text response.
+           - Follow it immediately with the JSON object strictly matching this schema:
+           ${JSON.stringify(OUTFIT_SCHEMA)}
+           - Ensure the JSON is at the very end of the response.
         `,
       },
       history: recentHistory
@@ -152,16 +207,24 @@ export const chatWithIxora = async (
     let finalOutfit: Outfit | undefined;
     let finalText = responseText;
 
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
+    // Improved regex to catch json block at the end, specifically looking for the object structure
+    // We look for the last occurrence of { "title": ... } pattern to start the JSON
+    const jsonStartIndex = responseText.indexOf('{');
+    
+    if (jsonStartIndex !== -1) {
       try {
-        const potentialJson = JSON.parse(jsonMatch[0]);
+        const potentialJsonString = responseText.substring(jsonStartIndex);
+        // Clean up any potential markdown code blocks if they exist in the substring
+        const cleanJsonString = potentialJsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        const potentialJson = JSON.parse(cleanJsonString);
         if (potentialJson.title && potentialJson.items) {
            finalOutfit = potentialJson as Outfit;
-           finalText = responseText.replace(jsonMatch[0], '').trim();
+           // Keep only the text BEFORE the JSON
+           finalText = responseText.substring(0, jsonStartIndex).trim();
         }
       } catch (e) {
-        // Failed to parse JSON, treat as text
+        console.warn("Found potential JSON but failed to parse:", e);
       }
     }
 
@@ -178,7 +241,6 @@ export const chatWithIxora = async (
 
 export const analyzeBodyShape = async (imageBase64: string): Promise<{ shape: BodyShape; reasoning: string } | null> => {
   try {
-    // Remove data URL prefix if present for the API call
     const base64Data = imageBase64.split(',')[1] || imageBase64;
 
     const response = await ai.models.generateContent({
@@ -274,6 +336,40 @@ export const analyzeBeautyProfile = async (imageBase64: string): Promise<BeautyA
     return null;
   } catch (error) {
     console.error("Error analyzing beauty profile:", error);
+    return null;
+  }
+};
+
+export const analyzeColorPalette = async (imageBase64: string): Promise<ColorPaletteAnalysis | null> => {
+  try {
+    const base64Data = imageBase64.split(',')[1] || imageBase64;
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: base64Data
+            }
+          },
+          {
+            text: "Perform a seasonal color analysis on this person (e.g., Autumn, Winter, Spring, Summer and their sub-types like Deep Autumn, Light Spring, etc.). Suggest a color palette for their clothing including best colors, neutrals, and colors to avoid."
+          }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: COLOR_PALETTE_SCHEMA,
+      }
+    });
+
+    if (response.text) {
+      return JSON.parse(response.text) as ColorPaletteAnalysis;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error analyzing color palette:", error);
     return null;
   }
 };

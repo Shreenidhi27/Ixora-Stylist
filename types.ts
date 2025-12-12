@@ -44,6 +44,9 @@ export interface ProductItem {
   imageUrl: string;
   url: string;
   tracking: boolean; // Is price tracking enabled?
+  rating?: number;
+  reviewCount?: number;
+  source?: 'Amazon' | 'Myntra' | 'Ajio' | 'Other';
 }
 
 export interface Outfit {
@@ -91,4 +94,17 @@ export interface BeautyAnalysis {
   recommendedHairStyles: string[];
 }
 
-export type ViewState = 'dashboard' | 'chat' | 'wardrobe' | 'profile' | 'commerce' | 'workout' | 'beauty';
+export interface PaletteColor {
+  name: string;
+  hex: string;
+}
+
+export interface ColorPaletteAnalysis {
+  season: string; // e.g. "Deep Autumn"
+  description: string;
+  bestColors: PaletteColor[];
+  neutrals: PaletteColor[];
+  avoidColors: PaletteColor[];
+}
+
+export type ViewState = 'dashboard' | 'chat' | 'wardrobe' | 'profile' | 'commerce' | 'workout' | 'beauty' | 'palette';

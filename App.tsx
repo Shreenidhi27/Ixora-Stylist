@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, BodyShape, SkinTone, Gender, ViewState, WeatherData } from './types';
-import { Home, MessageSquare, UserCircle, ShoppingBag, Dumbbell, Sparkles } from 'lucide-react';
+import { Home, MessageSquare, UserCircle, ShoppingBag, Dumbbell, Sparkles, Palette } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
 import ChatInterface from './components/ChatInterface';
@@ -8,6 +8,7 @@ import ProfileForm from './components/ProfileForm';
 import CommerceView from './components/CommerceView';
 import WorkoutView from './components/WorkoutView';
 import ColorAnalysisView from './components/ColorAnalysisView';
+import ColorPaletteView from './components/ColorPaletteView';
 
 // Default initial state
 const DEFAULT_PROFILE: UserProfile = {
@@ -47,6 +48,8 @@ const App: React.FC = () => {
         return <WorkoutView userProfile={userProfile} />;
       case 'beauty':
         return <ColorAnalysisView userProfile={userProfile} onUpdateProfile={setUserProfile} />;
+      case 'palette':
+        return <ColorPaletteView userProfile={userProfile} onUpdateProfile={setUserProfile} />;
       default:
         return <Dashboard userProfile={userProfile} weather={MOCK_WEATHER} />;
     }
@@ -55,12 +58,12 @@ const App: React.FC = () => {
   const NavItem = ({ target, icon: Icon, label }: { target: ViewState; icon: any; label: string }) => (
     <button
       onClick={() => setView(target)}
-      className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
+      className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors min-w-[50px] ${
         view === target ? 'text-rose-500' : 'text-stone-400 hover:text-stone-600'
       }`}
     >
-      <Icon className={`w-6 h-6 ${view === target ? 'fill-current' : ''}`} />
-      <span className="text-[10px] font-medium tracking-wide">{label}</span>
+      <Icon className={`w-5 h-5 ${view === target ? 'fill-current' : ''}`} />
+      <span className="text-[9px] font-medium tracking-wide">{label}</span>
     </button>
   );
 
@@ -71,7 +74,7 @@ const App: React.FC = () => {
         <div className="p-6 border-b border-stone-100">
           <h1 className="text-2xl font-serif font-bold text-stone-900 tracking-tight">Ixora.</h1>
         </div>
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <button
             onClick={() => setView('dashboard')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
@@ -81,12 +84,20 @@ const App: React.FC = () => {
             <Home className="w-5 h-5" /> Dashboard
           </button>
           <button
+            onClick={() => setView('palette')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+              view === 'palette' ? 'bg-rose-50 text-rose-600 font-medium' : 'text-stone-600 hover:bg-stone-50'
+            }`}
+          >
+            <Palette className="w-5 h-5" /> Color Palette
+          </button>
+          <button
             onClick={() => setView('beauty')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
               view === 'beauty' ? 'bg-rose-50 text-rose-600 font-medium' : 'text-stone-600 hover:bg-stone-50'
             }`}
           >
-            <Sparkles className="w-5 h-5" /> Beauty & Color
+            <Sparkles className="w-5 h-5" /> Beauty & Try-On
           </button>
           <button
             onClick={() => setView('workout')}
@@ -143,10 +154,11 @@ const App: React.FC = () => {
 
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-2 pb-safe z-50">
-        <div className="flex justify-around items-center">
+        <div className="flex justify-around items-center px-1">
           <NavItem target="dashboard" icon={Home} label="Home" />
-          <NavItem target="beauty" icon={Sparkles} label="Beauty" />
-          <NavItem target="workout" icon={Dumbbell} label="Fit" />
+          <NavItem target="palette" icon={Palette} label="Palette" />
+          <NavItem target="beauty" icon={Sparkles} label="Try-On" />
+          {/* <NavItem target="workout" icon={Dumbbell} label="Fit" />  Removed one to fit width comfortably */}
           <NavItem target="chat" icon={MessageSquare} label="Chat" />
           <NavItem target="commerce" icon={ShoppingBag} label="Shop" />
         </div>
